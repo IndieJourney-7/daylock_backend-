@@ -6,34 +6,51 @@
 import { supabaseAdmin } from '../config/supabase.js'
 
 /**
- * Generate a random invite code (XXX-XXXX format)
+ * Generate an invite code from the room name + unique number
+ * e.g. "Gym" -> "gym-482", "Morning Study" -> "morning-study-731"
  */
-function generateInviteCode() {
-  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
-  let code = ''
-  
-  // 3-letter prefix
-  for (let i = 0; i < 3; i++) {
-    code += chars[Math.floor(Math.random() * 24)]
+async function generateInviteCode(roomName) {
+  const slug = (roomName || 'room')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    || 'room'
+
+  // Try up to 10 times to find a unique code
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const num = Math.floor(100 + Math.random() * 900) // 3-digit: 100-999
+    const code = `${slug}-${num}`
+
+    const { data } = await supabaseAdmin
+      .from('room_invites')
+      .select('id')
+      .eq('invite_code', code)
+      .maybeSingle()
+
+    if (!data) return code // unique
   }
-  code += '-'
-  // 4 alphanumeric
-  for (let i = 0; i < 4; i++) {
-    code += chars[Math.floor(Math.random() * chars.length)]
-  }
-  
-  return code
+
+  // Fallback: slug + timestamp fragment
+  const ts = Date.now().toString(36).slice(-4)
+  return `${slug}-${ts}`
 }
 
 export const invitesService = {
   /**
    * Create a new invite for a room
    */
-  async createInvite(roomId, userId) {
+  /**
+   * Create a new invite for a room
+   * roomName is used to generate the invite code (e.g. gym-482)
+   */
+  async createInvite(roomId, userId, roomName) {
     // Verify user owns the room
     const { data: room } = await supabaseAdmin
       .from('rooms')
-      .select('user_id')
+      .select('user_id, name')
       .eq('id', roomId)
       .single()
     
@@ -41,7 +58,7 @@ export const invitesService = {
       throw new Error('Unauthorized to create invite for this room')
     }
     
-    const code = generateInviteCode()
+    const code = await generateInviteCode(roomName || room.name)
     
     const { data, error } = await supabaseAdmin
       .from('room_invites')
@@ -56,7 +73,7 @@ export const invitesService = {
     if (error) {
       // If code collision, retry
       if (error.code === '23505') {
-        return this.createInvite(roomId, userId)
+        return this.createInvite(roomId, userId, roomName)
       }
       throw error
     }
@@ -79,7 +96,7 @@ export const invitesService = {
           )
         )
       `)
-      .eq('invite_code', code.toUpperCase())
+      .eq('invite_code', code.toLowerCase())
       .maybeSingle()
     
     if (error) throw error
