@@ -1,22 +1,16 @@
 /**
  * Authentication Middleware
- * Validates Supabase JWT tokens
+ * Validates Supabase JWT tokens using Supabase Auth API
+ * Works with both legacy HS256 and new ECC (P-256) keys
  */
 
-import jwt from 'jsonwebtoken'
-
-const JWT_SECRET = process.env.SUPABASE_JWT_SECRET
-
-// Log if JWT_SECRET is missing on startup
-if (!JWT_SECRET) {
-  console.error('⚠️  WARNING: SUPABASE_JWT_SECRET is not set!')
-}
+import { supabaseAdmin } from '../config/supabase.js'
 
 /**
  * Middleware to verify Supabase JWT token
- * Extracts user info and attaches to req.user
+ * Uses supabase.auth.getUser() for reliable token validation
  */
-export function authenticate(req, res, next) {
+export async function authenticate(req, res, next) {
   try {
     const authHeader = req.headers.authorization
     
@@ -37,43 +31,29 @@ export function authenticate(req, res, next) {
         message: 'No token provided' 
       })
     }
-
-    if (!JWT_SECRET) {
-      console.error('Auth failed: SUPABASE_JWT_SECRET not configured')
-      return res.status(500).json({
-        error: 'Server Configuration Error',
-        message: 'JWT secret not configured'
+    
+    // Verify token using Supabase Auth API
+    const { data: { user }, error } = await supabaseAdmin.auth.getUser(token)
+    
+    if (error || !user) {
+      console.log('Auth failed:', error?.message || 'No user found')
+      return res.status(401).json({ 
+        error: 'Unauthorized',
+        message: error?.message || 'Invalid token' 
       })
     }
-    
-    // Verify the JWT token
-    const decoded = jwt.verify(token, JWT_SECRET)
     
     // Attach user info to request
     req.user = {
-      id: decoded.sub,
-      email: decoded.email,
-      role: decoded.role,
-      aud: decoded.aud
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      aud: user.aud
     }
     
-    console.log(`Auth success: ${decoded.email} (${decoded.sub})`)
+    console.log(`Auth success: ${user.email} (${user.id})`)
     next()
   } catch (error) {
-    if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({ 
-        error: 'Unauthorized',
-        message: 'Token expired' 
-      })
-    }
-    
-    if (error.name === 'JsonWebTokenError') {
-      return res.status(401).json({ 
-        error: 'Unauthorized',
-        message: 'Invalid token' 
-      })
-    }
-    
     console.error('Auth middleware error:', error)
     return res.status(500).json({ 
       error: 'Internal Server Error',
@@ -86,7 +66,7 @@ export function authenticate(req, res, next) {
  * Optional authentication - doesn't fail if no token
  * Useful for endpoints that work for both auth and non-auth users
  */
-export function optionalAuth(req, res, next) {
+export async function optionalAuth(req, res, next) {
   const authHeader = req.headers.authorization
   
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -96,6 +76,24 @@ export function optionalAuth(req, res, next) {
   
   try {
     const token = authHeader.split(' ')[1]
+    const { data: { user }, error } = await supabaseAdmin.auth.getUser(token)
+    
+    if (user && !error) {
+      req.user = {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        aud: user.aud
+      }
+    } else {
+      req.user = null
+    }
+    next()
+  } catch {
+    req.user = null
+    next()
+  }
+}
     const decoded = jwt.verify(token, JWT_SECRET)
     
     req.user = {
