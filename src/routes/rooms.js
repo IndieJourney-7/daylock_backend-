@@ -14,9 +14,12 @@ const router = Router()
  */
 router.get('/', async (req, res, next) => {
   try {
+    console.log(`GET /rooms - User: ${req.user.id}`)
     const rooms = await roomsService.getUserRooms(req.user.id)
+    console.log(`GET /rooms - Found ${rooms?.length || 0} rooms`)
     res.json(rooms)
   } catch (error) {
+    console.error('GET /rooms error:', error.message)
     next(error)
   }
 })
