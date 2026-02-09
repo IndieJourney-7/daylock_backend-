@@ -91,6 +91,73 @@ export const analyticsService = {
     }
   },
 
+  // ─── USER → SINGLE ROOM ANALYTICS ─────────────────────────────
+
+  /**
+   * Full analytics for a user in a specific room
+   */
+  async getUserRoomAnalytics(userId, roomId) {
+    // 1. Verify room belongs to user
+    const { data: room } = await supabaseAdmin
+      .from('rooms')
+      .select('id, name, emoji')
+      .eq('id', roomId)
+      .eq('user_id', userId)
+      .single()
+
+    if (!room) return null
+
+    // 2. All attendance for this room
+    const { data: records, error } = await supabaseAdmin
+      .from('attendance')
+      .select('id, room_id, date, status, submitted_at, reviewed_at')
+      .eq('user_id', userId)
+      .eq('room_id', roomId)
+      .order('date', { ascending: true })
+
+    if (error) throw error
+    const all = records || []
+
+    // ── Stats ──
+    const totalDays = all.length
+    const approved = all.filter(r => r.status === 'approved').length
+    const rejected = all.filter(r => r.status === 'rejected').length
+    const missed = all.filter(r => r.status === 'missed').length
+    const pending = all.filter(r => r.status === 'pending_review').length
+    const rate = totalDays > 0 ? Math.round((approved / totalDays) * 100) : 0
+
+    // ── Streaks ──
+    const approvedDates = all
+      .filter(r => r.status === 'approved')
+      .map(r => r.date)
+      .sort()
+    const { currentStreak, bestStreak } = computeStreaks(approvedDates)
+
+    // ── Trends ──
+    const weeklyTrend = computeWeeklyTrend(all, 12)
+    const monthlyTrend = computeMonthlyTrend(all, 6)
+    const heatmap = computeHeatmap(all, 90)
+
+    // ── Status distribution ──
+    const statusDistribution = [
+      { name: 'Approved', value: approved, color: '#22c55e' },
+      { name: 'Rejected', value: rejected, color: '#ef4444' },
+      { name: 'Missed', value: missed, color: '#f59e0b' },
+      { name: 'Pending', value: pending, color: '#6366f1' },
+    ].filter(s => s.value > 0)
+
+    return {
+      room,
+      overview: { totalDays, approved, rejected, missed, pending, rate },
+      streaks: { currentStreak, bestStreak },
+      weeklyTrend,
+      monthlyTrend,
+      heatmap,
+      statusDistribution,
+      records: all
+    }
+  },
+
   // ─── ADMIN ANALYTICS ──────────────────────────────────────────
 
   /**

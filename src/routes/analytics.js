@@ -22,6 +22,22 @@ router.get('/user', async (req, res, next) => {
 })
 
 /**
+ * GET /api/analytics/user/room/:roomId
+ * Get full analytics for a specific room
+ */
+router.get('/user/room/:roomId', async (req, res, next) => {
+  try {
+    const data = await analyticsService.getUserRoomAnalytics(req.user.id, req.params.roomId)
+    if (!data) {
+      return res.status(404).json({ error: 'Room not found' })
+    }
+    res.json(data)
+  } catch (error) {
+    next(error)
+  }
+})
+
+/**
  * GET /api/analytics/admin
  * Get full analytics for admin (across all managed rooms/users)
  */
