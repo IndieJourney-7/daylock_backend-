@@ -65,24 +65,24 @@ router.get('/:roomId/stats', async (req, res, next) => {
 
 /**
  * POST /api/rooms
- * Create a new room
+ * Create a new room (name + description + emoji)
+ * Timing is set by admin later, room code is auto-generated
  */
 router.post('/', async (req, res, next) => {
   try {
-    const { name, emoji, time_start, time_end } = req.body
+    const { name, emoji, description } = req.body
     
-    if (!name || !time_start || !time_end) {
+    if (!name || !name.trim()) {
       return res.status(400).json({ 
         error: 'Bad Request',
-        message: 'Name, time_start, and time_end are required' 
+        message: 'Room name is required' 
       })
     }
     
     const room = await roomsService.createRoom(req.user.id, {
-      name,
+      name: name.trim(),
       emoji,
-      time_start,
-      time_end
+      description
     })
     res.status(201).json(room)
   } catch (error) {

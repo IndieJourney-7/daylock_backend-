@@ -5,6 +5,41 @@
 
 import { supabaseAdmin } from '../config/supabase.js'
 
+/**
+ * Generate a unique room code from the room name
+ * e.g. "Gym" -> "gym-878", "Morning Study" -> "morning-study-342"
+ */
+async function generateRoomCode(name) {
+  // Sanitize name: lowercase, replace spaces with dashes, remove special chars
+  const slug = name
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    || 'room'
+
+  // Try up to 10 times to find a unique code
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const num = Math.floor(100 + Math.random() * 900) // 3-digit number 100-999
+    const code = `${slug}-${num}`
+
+    // Check uniqueness
+    const { data } = await supabaseAdmin
+      .from('rooms')
+      .select('id')
+      .eq('room_code', code)
+      .maybeSingle()
+
+    if (!data) return code // unique!
+  }
+
+  // Fallback: use slug + timestamp fragment for guaranteed uniqueness
+  const ts = Date.now().toString(36).slice(-4)
+  return `${slug}-${ts}`
+}
+
 export const roomsService = {
   /**
    * Get all rooms for a user
@@ -124,16 +159,22 @@ export const roomsService = {
 
   /**
    * Create a new room
+   * Room code is auto-generated from the name (e.g. gym-878)
+   * Timing is NOT set by user — admin does it later
    */
   async createRoom(userId, roomData) {
+    const room_code = await generateRoomCode(roomData.name)
+
     const { data, error } = await supabaseAdmin
       .from('rooms')
       .insert({
         user_id: userId,
         name: roomData.name,
         emoji: roomData.emoji || '📋',
-        time_start: roomData.time_start || roomData.timeStart,
-        time_end: roomData.time_end || roomData.timeEnd
+        description: roomData.description || '',
+        room_code,
+        time_start: null,
+        time_end: null
       })
       .select()
       .single()
