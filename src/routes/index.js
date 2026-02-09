@@ -11,6 +11,7 @@ import roomsRoutes from './rooms.js'
 import attendanceRoutes from './attendance.js'
 import invitesRoutes from './invites.js'
 import rulesRoutes from './rules.js'
+import analyticsRoutes from './analytics.js'
 
 const router = Router()
 
@@ -28,5 +29,6 @@ router.use('/rooms', authenticate, roomsRoutes)
 router.use('/attendance', authenticate, attendanceRoutes)
 router.use('/invites', authenticate, invitesRoutes)
 router.use('/rules', authenticate, rulesRoutes)
+router.use('/analytics', authenticate, analyticsRoutes)
 
 export default router
