@@ -143,7 +143,7 @@ export const roomsService = {
   },
 
   /**
-   * Update a room
+   * Update a room (owner only)
    */
   async updateRoom(roomId, userId, updates) {
     // Verify ownership
@@ -156,6 +156,126 @@ export const roomsService = {
       .from('rooms')
       .update({
         ...updates,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', roomId)
+      .select()
+      .single()
+    
+    if (error) throw error
+    return data
+  },
+
+  /**
+   * Admin update a room (admin can update time, toggle, etc.)
+   * Verifies user is admin of the room via room_invites
+   */
+  async adminUpdateRoom(roomId, adminId, updates) {
+    // Verify admin access
+    const { data: invite, error: inviteError } = await supabaseAdmin
+      .from('room_invites')
+      .select('id')
+      .eq('room_id', roomId)
+      .eq('admin_id', adminId)
+      .eq('status', 'accepted')
+      .maybeSingle()
+    
+    if (inviteError) throw inviteError
+    if (!invite) {
+      throw new Error('Unauthorized: you are not an admin of this room')
+    }
+    
+    // Only allow specific fields for admin updates
+    const allowedFields = ['time_start', 'time_end', 'is_paused', 'allow_late_upload', 'description']
+    const sanitized = {}
+    for (const key of allowedFields) {
+      if (updates[key] !== undefined) {
+        sanitized[key] = updates[key]
+      }
+    }
+    
+    const { data, error } = await supabaseAdmin
+      .from('rooms')
+      .update({
+        ...sanitized,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', roomId)
+      .select()
+      .single()
+    
+    if (error) throw error
+    return data
+  },
+
+  /**
+   * Toggle room pause status (admin)
+   */
+  async toggleRoomPause(roomId, adminId) {
+    // Verify admin access
+    const { data: invite, error: inviteError } = await supabaseAdmin
+      .from('room_invites')
+      .select('id')
+      .eq('room_id', roomId)
+      .eq('admin_id', adminId)
+      .eq('status', 'accepted')
+      .maybeSingle()
+    
+    if (inviteError) throw inviteError
+    if (!invite) {
+      throw new Error('Unauthorized: you are not an admin of this room')
+    }
+    
+    // Get current state
+    const { data: room } = await supabaseAdmin
+      .from('rooms')
+      .select('is_paused')
+      .eq('id', roomId)
+      .single()
+    
+    const { data, error } = await supabaseAdmin
+      .from('rooms')
+      .update({
+        is_paused: !room.is_paused,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', roomId)
+      .select()
+      .single()
+    
+    if (error) throw error
+    return data
+  },
+
+  /**
+   * Toggle allow late upload (admin)
+   */
+  async toggleLateUpload(roomId, adminId) {
+    // Verify admin access
+    const { data: invite, error: inviteError } = await supabaseAdmin
+      .from('room_invites')
+      .select('id')
+      .eq('room_id', roomId)
+      .eq('admin_id', adminId)
+      .eq('status', 'accepted')
+      .maybeSingle()
+    
+    if (inviteError) throw inviteError
+    if (!invite) {
+      throw new Error('Unauthorized: you are not an admin of this room')
+    }
+    
+    // Get current state
+    const { data: room } = await supabaseAdmin
+      .from('rooms')
+      .select('allow_late_upload')
+      .eq('id', roomId)
+      .single()
+    
+    const { data, error } = await supabaseAdmin
+      .from('rooms')
+      .update({
+        allow_late_upload: !room.allow_late_upload,
         updated_at: new Date().toISOString()
       })
       .eq('id', roomId)

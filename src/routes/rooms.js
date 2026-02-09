@@ -92,7 +92,7 @@ router.post('/', async (req, res, next) => {
 
 /**
  * PUT /api/rooms/:roomId
- * Update a room
+ * Update a room (owner)
  */
 router.put('/:roomId', async (req, res, next) => {
   try {
@@ -103,6 +103,52 @@ router.put('/:roomId', async (req, res, next) => {
       time_start,
       time_end
     })
+    res.json(room)
+  } catch (error) {
+    next(error)
+  }
+})
+
+/**
+ * PUT /api/rooms/:roomId/admin-update
+ * Admin update a room (time window, toggles, description)
+ */
+router.put('/:roomId/admin-update', async (req, res, next) => {
+  try {
+    const { time_start, time_end, is_paused, allow_late_upload, description } = req.body
+    const room = await roomsService.adminUpdateRoom(req.params.roomId, req.user.id, {
+      time_start,
+      time_end,
+      is_paused,
+      allow_late_upload,
+      description
+    })
+    res.json(room)
+  } catch (error) {
+    next(error)
+  }
+})
+
+/**
+ * POST /api/rooms/:roomId/toggle-pause
+ * Toggle room pause (admin)
+ */
+router.post('/:roomId/toggle-pause', async (req, res, next) => {
+  try {
+    const room = await roomsService.toggleRoomPause(req.params.roomId, req.user.id)
+    res.json(room)
+  } catch (error) {
+    next(error)
+  }
+})
+
+/**
+ * POST /api/rooms/:roomId/toggle-late-upload
+ * Toggle allow late upload (admin)
+ */
+router.post('/:roomId/toggle-late-upload', async (req, res, next) => {
+  try {
+    const room = await roomsService.toggleLateUpload(req.params.roomId, req.user.id)
     res.json(room)
   } catch (error) {
     next(error)
