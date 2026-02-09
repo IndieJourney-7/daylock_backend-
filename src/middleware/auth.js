@@ -94,18 +94,5 @@ export async function optionalAuth(req, res, next) {
     next()
   }
 }
-    const decoded = jwt.verify(token, JWT_SECRET)
-    
-    req.user = {
-      id: decoded.sub,
-      email: decoded.email,
-      role: decoded.role
-    }
-  } catch (error) {
-    req.user = null
-  }
-  
-  next()
-}
 
 export default authenticate
