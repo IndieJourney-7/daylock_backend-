@@ -96,10 +96,11 @@ router.post('/', async (req, res, next) => {
  */
 router.put('/:roomId', async (req, res, next) => {
   try {
-    const { name, emoji, time_start, time_end } = req.body
+    const { name, emoji, description, time_start, time_end } = req.body
     const room = await roomsService.updateRoom(req.params.roomId, req.user.id, {
       name,
       emoji,
+      description,
       time_start,
       time_end
     })
