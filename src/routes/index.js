@@ -12,6 +12,7 @@ import attendanceRoutes from './attendance.js'
 import invitesRoutes from './invites.js'
 import rulesRoutes from './rules.js'
 import analyticsRoutes from './analytics.js'
+import galleryRoutes from './gallery.js'
 
 const router = Router()
 
@@ -30,5 +31,6 @@ router.use('/attendance', authenticate, attendanceRoutes)
 router.use('/invites', authenticate, invitesRoutes)
 router.use('/rules', authenticate, rulesRoutes)
 router.use('/analytics', authenticate, analyticsRoutes)
+router.use('/gallery', authenticate, galleryRoutes)
 
 export default router
