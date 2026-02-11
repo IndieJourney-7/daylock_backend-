@@ -192,6 +192,32 @@ export const attendanceService = {
   },
 
   /**
+   * Mark user as absent/missed for a specific date (admin action)
+   * Creates or updates attendance record with 'missed' status
+   */
+  async markAbsent(roomId, userId, date, adminId) {
+    const targetDate = date || new Date().toISOString().split('T')[0]
+    
+    const { data, error } = await supabaseAdmin
+      .from('attendance')
+      .upsert({
+        room_id: roomId,
+        user_id: userId,
+        date: targetDate,
+        status: 'missed',
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: adminId
+      }, {
+        onConflict: 'room_id,user_id,date'
+      })
+      .select()
+      .single()
+    
+    if (error) throw error
+    return data
+  },
+
+  /**
    * Get room stats
    */
   async getRoomStats(roomId, userId) {

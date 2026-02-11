@@ -161,4 +161,32 @@ router.post('/:attendanceId/reject', async (req, res, next) => {
   }
 })
 
+/**
+ * POST /api/attendance/mark-absent
+ * Mark user as absent for a date (admin action)
+ * Body: { room_id, user_id, date? }
+ */
+router.post('/mark-absent', async (req, res, next) => {
+  try {
+    const { room_id, user_id, date } = req.body
+    
+    if (!room_id || !user_id) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'room_id and user_id are required'
+      })
+    }
+    
+    const attendance = await attendanceService.markAbsent(
+      room_id,
+      user_id,
+      date,
+      req.user.id
+    )
+    res.status(201).json(attendance)
+  } catch (error) {
+    next(error)
+  }
+})
+
 export default router
