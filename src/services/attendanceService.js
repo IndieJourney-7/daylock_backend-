@@ -194,9 +194,23 @@ export const attendanceService = {
   /**
    * Mark user as absent/missed for a specific date (admin action)
    * Creates or updates attendance record with 'missed' status
+   * Will NOT overwrite approved or pending_review entries
    */
   async markAbsent(roomId, userId, date, adminId) {
     const targetDate = date || new Date().toISOString().split('T')[0]
+    
+    // Check if there's already an approved or pending entry for this date
+    const { data: existing } = await supabaseAdmin
+      .from('attendance')
+      .select('id, status')
+      .eq('room_id', roomId)
+      .eq('user_id', userId)
+      .eq('date', targetDate)
+      .maybeSingle()
+    
+    if (existing && (existing.status === 'approved' || existing.status === 'pending_review')) {
+      throw new Error(`Cannot mark absent — user already has "${existing.status}" entry for ${targetDate}`)
+    }
     
     const { data, error } = await supabaseAdmin
       .from('attendance')
