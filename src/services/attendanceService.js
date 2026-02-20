@@ -36,14 +36,18 @@ export const attendanceService = {
   /**
    * Approve attendance (admin action)
    */
-  async approveAttendance(attendanceId, adminId) {
+  async approveAttendance(attendanceId, adminId, options = {}) {
+    const updateData = {
+      status: 'approved',
+      reviewed_at: new Date().toISOString(),
+      reviewed_by: adminId
+    }
+    if (options.quality_rating) updateData.quality_rating = options.quality_rating
+    if (options.admin_feedback) updateData.admin_feedback = options.admin_feedback
+
     const { data, error } = await supabaseAdmin
       .from('attendance')
-      .update({
-        status: 'approved',
-        reviewed_at: new Date().toISOString(),
-        reviewed_by: adminId
-      })
+      .update(updateData)
       .eq('id', attendanceId)
       .select()
       .single()
@@ -55,15 +59,19 @@ export const attendanceService = {
   /**
    * Reject attendance (admin action)
    */
-  async rejectAttendance(attendanceId, adminId, reason = '') {
+  async rejectAttendance(attendanceId, adminId, reason = '', options = {}) {
+    const updateData = {
+      status: 'rejected',
+      rejection_reason: reason,
+      reviewed_at: new Date().toISOString(),
+      reviewed_by: adminId
+    }
+    if (options.quality_rating) updateData.quality_rating = options.quality_rating
+    if (options.admin_feedback) updateData.admin_feedback = options.admin_feedback
+
     const { data, error } = await supabaseAdmin
       .from('attendance')
-      .update({
-        status: 'rejected',
-        rejection_reason: reason,
-        reviewed_at: new Date().toISOString(),
-        reviewed_by: adminId
-      })
+      .update(updateData)
       .eq('id', attendanceId)
       .select()
       .single()

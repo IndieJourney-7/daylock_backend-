@@ -137,9 +137,11 @@ router.get('/pending/:roomId', async (req, res, next) => {
  */
 router.post('/:attendanceId/approve', async (req, res, next) => {
   try {
+    const { quality_rating, admin_feedback } = req.body || {}
     const attendance = await attendanceService.approveAttendance(
       req.params.attendanceId,
-      req.user.id
+      req.user.id,
+      { quality_rating, admin_feedback }
     )
     res.json(attendance)
   } catch (error) {
@@ -153,11 +155,12 @@ router.post('/:attendanceId/approve', async (req, res, next) => {
  */
 router.post('/:attendanceId/reject', async (req, res, next) => {
   try {
-    const { reason } = req.body
+    const { reason, quality_rating, admin_feedback } = req.body
     const attendance = await attendanceService.rejectAttendance(
       req.params.attendanceId,
       req.user.id,
-      reason
+      reason,
+      { quality_rating, admin_feedback }
     )
     res.json(attendance)
   } catch (error) {
