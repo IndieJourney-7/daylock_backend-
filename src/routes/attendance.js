@@ -29,12 +29,16 @@ router.get('/', async (req, res, next) => {
 /**
  * GET /api/attendance/room/:roomId
  * Get attendance for a specific room
+ * Query params:
+ *   - userId: (optional) when admin wants to view another user's attendance
  */
 router.get('/room/:roomId', async (req, res, next) => {
   try {
+    // Allow admins to view a specific user's attendance
+    const userId = req.query.userId || req.user.id
     const attendance = await attendanceService.getUserAttendance(
       req.params.roomId,
-      req.user.id
+      userId
     )
     res.json(attendance)
   } catch (error) {
