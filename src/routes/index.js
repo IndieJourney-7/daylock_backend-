@@ -19,6 +19,7 @@ import leaderboardRoutes from './leaderboard.js'
 import challengesRoutes from './challenges.js'
 import notificationsRoutes from './notifications.js'
 import feedRoutes from './feed.js'
+import remindersRoutes from './reminders.js'
 
 const router = Router()
 
@@ -44,5 +45,6 @@ router.use('/leaderboard', authenticate, leaderboardRoutes)
 router.use('/challenges', authenticate, challengesRoutes)
 router.use('/notifications', authenticate, notificationsRoutes)
 router.use('/feed', authenticate, feedRoutes)
+router.use('/reminders', authenticate, remindersRoutes)
 
 export default router
