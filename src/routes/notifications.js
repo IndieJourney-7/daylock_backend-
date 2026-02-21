@@ -5,8 +5,20 @@
 
 import { Router } from 'express'
 import { notificationsService } from '../services/notificationsService.js'
+import { VAPID_PUBLIC_KEY, pushEnabled } from '../config/webpush.js'
 
 const router = Router()
+
+/**
+ * GET /api/notifications/vapid-public-key
+ * Returns the VAPID public key for push subscription on the client
+ */
+router.get('/vapid-public-key', (req, res) => {
+  if (!pushEnabled || !VAPID_PUBLIC_KEY) {
+    return res.status(503).json({ error: 'Push notifications not configured' })
+  }
+  res.json({ publicKey: VAPID_PUBLIC_KEY })
+})
 
 /**
  * GET /api/notifications

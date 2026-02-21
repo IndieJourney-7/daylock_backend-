@@ -10,6 +10,7 @@ import cors from 'cors'
 import { corsOptions } from './config/index.js'
 import { errorHandler, notFoundHandler } from './middleware/index.js'
 import routes from './routes/index.js'
+import { startReminderCron } from './cron/reminderCron.js'
 
 const app = express()
 const PORT = process.env.PORT || 3001
@@ -52,6 +53,9 @@ app.listen(PORT, () => {
    
    Environment: ${process.env.NODE_ENV || 'development'}
   `)
+
+  // Start cron jobs after server is ready
+  startReminderCron()
 })
 
 export default app
