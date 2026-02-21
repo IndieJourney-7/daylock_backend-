@@ -14,6 +14,11 @@ import rulesRoutes from './rules.js'
 import analyticsRoutes from './analytics.js'
 import galleryRoutes from './gallery.js'
 import warningsRoutes from './warnings.js'
+import achievementsRoutes from './achievements.js'
+import leaderboardRoutes from './leaderboard.js'
+import challengesRoutes from './challenges.js'
+import notificationsRoutes from './notifications.js'
+import feedRoutes from './feed.js'
 
 const router = Router()
 
@@ -34,5 +39,10 @@ router.use('/rules', authenticate, rulesRoutes)
 router.use('/analytics', authenticate, analyticsRoutes)
 router.use('/gallery', authenticate, galleryRoutes)
 router.use('/warnings', authenticate, warningsRoutes)
+router.use('/achievements', authenticate, achievementsRoutes)
+router.use('/leaderboard', authenticate, leaderboardRoutes)
+router.use('/challenges', authenticate, challengesRoutes)
+router.use('/notifications', authenticate, notificationsRoutes)
+router.use('/feed', authenticate, feedRoutes)
 
 export default router
