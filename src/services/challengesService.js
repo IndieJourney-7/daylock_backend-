@@ -9,9 +9,9 @@ export const challengesService = {
   // ============ CRUD ============
 
   async create(creatorId, { title, description, type, targetDays, roomId = null }) {
-    const startsAt = new Date()
-    const endsAt = new Date()
-    endsAt.setDate(endsAt.getDate() + targetDays)
+    const startDate = new Date()
+    const endDate = new Date()
+    endDate.setDate(endDate.getDate() + targetDays)
 
     const { data, error } = await supabaseAdmin
       .from('challenges')
@@ -21,9 +21,9 @@ export const challengesService = {
         title,
         description,
         type,
-        target_days: targetDays,
-        starts_at: startsAt.toISOString(),
-        ends_at: endsAt.toISOString(),
+        goal: targetDays,
+        start_date: startDate.toISOString().split('T')[0],
+        end_date: endDate.toISOString().split('T')[0],
         status: 'active'
       })
       .select()
@@ -63,7 +63,7 @@ export const challengesService = {
       .select('*, challenge_participants(*)')
       .in('id', ids)
       .in('status', ['active', 'pending'])
-      .order('starts_at', { ascending: false })
+      .order('start_date', { ascending: false })
     if (error) throw error
     return data || []
   },
@@ -86,9 +86,9 @@ export const challengesService = {
       .upsert({
         challenge_id: challengeId,
         user_id: userId,
-        completed_days: 0,
+        progress: 0,
         current_streak: 0,
-        status: 'active'
+        status: 'joined'
       }, { onConflict: 'challenge_id, user_id' })
       .select()
       .single()
@@ -99,7 +99,7 @@ export const challengesService = {
   async leave(challengeId, userId) {
     const { error } = await supabaseAdmin
       .from('challenge_participants')
-      .update({ status: 'dropped' })
+      .update({ status: 'withdrawn' })
       .eq('challenge_id', challengeId)
       .eq('user_id', userId)
     if (error) throw error
@@ -110,7 +110,7 @@ export const challengesService = {
       .from('challenge_participants')
       .select('*')
       .eq('challenge_id', challengeId)
-      .order('completed_days', { ascending: false })
+      .order('progress', { ascending: false })
     if (error) throw error
     return data || []
   },
@@ -126,7 +126,7 @@ export const challengesService = {
       .select('id')
       .eq('challenge_id', challengeId)
       .eq('user_id', userId)
-      .eq('log_date', today)
+      .eq('date', today)
       .single()
 
     if (existing) return existing // Already logged
@@ -134,7 +134,7 @@ export const challengesService = {
     // Insert log
     const { data, error } = await supabaseAdmin
       .from('challenge_daily_log')
-      .insert({ challenge_id: challengeId, user_id: userId, log_date: today, completed: true })
+      .insert({ challenge_id: challengeId, user_id: userId, date: today, completed: true })
       .select()
       .single()
     if (error) throw error
@@ -142,7 +142,7 @@ export const challengesService = {
     // Update participant stats
     const { data: participant } = await supabaseAdmin
       .from('challenge_participants')
-      .select('completed_days, current_streak')
+      .select('progress, current_streak')
       .eq('challenge_id', challengeId)
       .eq('user_id', userId)
       .single()
@@ -151,7 +151,7 @@ export const challengesService = {
       await supabaseAdmin
         .from('challenge_participants')
         .update({
-          completed_days: (participant.completed_days || 0) + 1,
+          progress: (participant.progress || 0) + 1,
           current_streak: (participant.current_streak || 0) + 1
         })
         .eq('challenge_id', challengeId)
@@ -167,7 +167,7 @@ export const challengesService = {
       .select('*')
       .eq('challenge_id', challengeId)
       .eq('user_id', userId)
-      .order('log_date', { ascending: false })
+      .order('date', { ascending: false })
     if (error) throw error
     return data || []
   },
@@ -179,17 +179,32 @@ export const challengesService = {
 
     // Determine winner (most completed days, then highest streak)
     const sorted = participants
-      .filter(p => p.status === 'active')
+      .filter(p => p.status === 'joined')
       .sort((a, b) => {
-        if (b.completed_days !== a.completed_days) return b.completed_days - a.completed_days
+        if (b.progress !== a.progress) return b.progress - a.progress
         return b.current_streak - a.current_streak
       })
 
-    const winnerId = sorted.length > 0 ? sorted[0].user_id : null
+    if (sorted.length > 0) {
+      // Mark winner
+      await supabaseAdmin
+        .from('challenge_participants')
+        .update({ status: 'won', completed_at: new Date().toISOString() })
+        .eq('challenge_id', challengeId)
+        .eq('user_id', sorted[0].user_id)
+
+      // Mark others as completed
+      await supabaseAdmin
+        .from('challenge_participants')
+        .update({ status: 'completed', completed_at: new Date().toISOString() })
+        .eq('challenge_id', challengeId)
+        .neq('user_id', sorted[0].user_id)
+        .eq('status', 'joined')
+    }
 
     const { data, error } = await supabaseAdmin
       .from('challenges')
-      .update({ status: 'completed', winner_id: winnerId })
+      .update({ status: 'completed', updated_at: new Date().toISOString() })
       .eq('id', challengeId)
       .select()
       .single()
@@ -205,7 +220,7 @@ export const challengesService = {
       .from('challenges')
       .select('id')
       .eq('status', 'active')
-      .lt('ends_at', new Date().toISOString())
+      .lt('end_date', new Date().toISOString().split('T')[0])
     if (error) throw error
 
     const results = []
