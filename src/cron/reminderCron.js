@@ -8,8 +8,9 @@
  * Flow:
  * 1. Every minute, query room_reminders joined with rooms
  * 2. For each reminder, compare current time with (room.time_start - minutes_before)
+ *    using the user's stored timezone to correctly interpret room.time_start
  * 3. If the reminder should fire within this minute window, send push
- * 4. Track sent reminders to avoid duplicates (using notification_log in DB)
+ * 4. Track sent reminders to avoid duplicates (using in-memory dedup)
  */
 
 import cron from 'node-cron'
@@ -30,14 +31,61 @@ function clearDailyLog() {
 }
 
 /**
- * Parse a TIME string (e.g. "09:00:00" or "09:00") into today's Date object
+ * Convert a TIME string (e.g. "09:00:00") in a given IANA timezone
+ * to a UTC Date for today.
+ * 
+ * E.g. parseTimeInTimezone("09:00:00", "Asia/Kolkata") → Date at 03:30 UTC today
  */
-function parseTimeToday(timeStr) {
+function parseTimeInTimezone(timeStr, timezone) {
   if (!timeStr) return null
+
   const parts = timeStr.split(':').map(Number)
+  const hours = parts[0] || 0
+  const minutes = parts[1] || 0
+
+  // Create a date string for today in the user's timezone
+  // We use a reference date in the user's timezone to calculate the UTC offset
   const now = new Date()
-  now.setHours(parts[0] || 0, parts[1] || 0, parts[2] || 0, 0)
-  return now
+  const year = now.getUTCFullYear()
+  const month = String(now.getUTCMonth() + 1).padStart(2, '0')
+  const day = String(now.getUTCDate()).padStart(2, '0')
+
+  try {
+    // Build a date-time string and parse it as if it's in the user's timezone
+    // Use Intl.DateTimeFormat to find the actual date in the user's timezone
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    })
+    const tzParts = formatter.formatToParts(now)
+    const tzYear = tzParts.find(p => p.type === 'year').value
+    const tzMonth = tzParts.find(p => p.type === 'month').value
+    const tzDay = tzParts.find(p => p.type === 'day').value
+
+    // Construct ISO string as if in that timezone, then compute UTC offset
+    // by comparing formatted "now" in that timezone to actual UTC
+    const localDateStr = `${tzYear}-${tzMonth}-${tzDay}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`
+    
+    // Get the offset for this timezone at this moment
+    const tempDate = new Date(localDateStr + 'Z') // treat as UTC first
+    const utcStr = tempDate.toLocaleString('en-US', { timeZone: 'UTC' })
+    const tzStr = tempDate.toLocaleString('en-US', { timeZone: timezone })
+    const utcDate = new Date(utcStr)
+    const tzDate = new Date(tzStr)
+    const offsetMs = tzDate.getTime() - utcDate.getTime()
+
+    // The actual UTC time for "hours:minutes in timezone" today
+    const result = new Date(tempDate.getTime() - offsetMs)
+    return result
+  } catch (err) {
+    // Fallback: treat as server local time
+    console.warn(`Invalid timezone "${timezone}", falling back to server time:`, err.message)
+    const fallback = new Date()
+    fallback.setHours(hours, minutes, 0, 0)
+    return fallback
+  }
 }
 
 /**
@@ -63,13 +111,15 @@ async function checkAndSendReminders() {
     const now = new Date()
     const todayStr = now.toISOString().slice(0, 10) // YYYY-MM-DD
     let sentCount = 0
+    let checkedCount = reminders.length
 
     for (const reminder of reminders) {
       const room = reminder.rooms
       if (!room || !room.time_start) continue
 
-      // Calculate when this reminder should fire
-      const roomOpens = parseTimeToday(room.time_start)
+      // Calculate when this reminder should fire, using user's timezone
+      const userTz = reminder.timezone || 'UTC'
+      const roomOpens = parseTimeInTimezone(room.time_start, userTz)
       if (!roomOpens) continue
 
       const reminderTime = new Date(roomOpens.getTime() - reminder.minutes_before * 60 * 1000)
@@ -119,7 +169,7 @@ async function checkAndSendReminders() {
     }
 
     if (sentCount > 0) {
-      console.log(`🔔 Sent ${sentCount} room reminder(s)`)
+      console.log(`🔔 Sent ${sentCount} room reminder(s) [checked ${checkedCount}]`)
     }
   } catch (err) {
     console.error('Reminder cron: unexpected error:', err)
@@ -132,12 +182,13 @@ async function checkAndSendReminders() {
 export function startReminderCron() {
   if (!pushEnabled) {
     console.log('⏭️  Reminder cron skipped (Web Push not configured)')
+    console.log('   Set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY environment variables to enable.')
     return
   }
 
   // Run every minute
   cron.schedule('* * * * *', checkAndSendReminders, {
-    timezone: undefined // Uses server timezone; reminders are computed against user's local time
+    timezone: undefined // Server timezone; room times are converted using user's stored timezone
   })
 
   // Clear dedup log at midnight

@@ -40,7 +40,7 @@ export const remindersService = {
    * @param {string} roomId
    * @param {number[]} minutesBefore - array of minutes, e.g. [5, 10, 15]
    */
-  async setForRoom(userId, roomId, minutesBefore = []) {
+  async setForRoom(userId, roomId, minutesBefore = [], timezone = 'UTC') {
     // Delete existing reminders for this user+room
     const { error: delError } = await supabaseAdmin
       .from('room_reminders')
@@ -54,12 +54,13 @@ export const remindersService = {
       return []
     }
 
-    // Insert new reminders
+    // Insert new reminders with user's timezone
     const rows = minutesBefore.map(min => ({
       user_id: userId,
       room_id: roomId,
       minutes_before: min,
-      enabled: true
+      enabled: true,
+      timezone: timezone || 'UTC'
     }))
 
     const { data, error } = await supabaseAdmin
@@ -73,14 +74,15 @@ export const remindersService = {
   /**
    * Add a single reminder
    */
-  async add(userId, roomId, minutesBefore) {
+  async add(userId, roomId, minutesBefore, timezone = 'UTC') {
     const { data, error } = await supabaseAdmin
       .from('room_reminders')
       .upsert({
         user_id: userId,
         room_id: roomId,
         minutes_before: minutesBefore,
-        enabled: true
+        enabled: true,
+        timezone: timezone || 'UTC'
       }, { onConflict: 'user_id, room_id, minutes_before' })
       .select()
       .single()

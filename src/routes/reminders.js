@@ -41,8 +41,8 @@ router.get('/room/:roomId', async (req, res, next) => {
  */
 router.put('/room/:roomId', async (req, res, next) => {
   try {
-    const { minutesBefore } = req.body
-    const data = await remindersService.setForRoom(req.user.id, req.params.roomId, minutesBefore)
+    const { minutesBefore, timezone } = req.body
+    const data = await remindersService.setForRoom(req.user.id, req.params.roomId, minutesBefore, timezone)
     res.json(data)
   } catch (error) {
     next(error)
@@ -56,8 +56,8 @@ router.put('/room/:roomId', async (req, res, next) => {
  */
 router.post('/', async (req, res, next) => {
   try {
-    const { roomId, minutesBefore } = req.body
-    const data = await remindersService.add(req.user.id, roomId, minutesBefore)
+    const { roomId, minutesBefore, timezone } = req.body
+    const data = await remindersService.add(req.user.id, roomId, minutesBefore, timezone)
     res.status(201).json(data)
   } catch (error) {
     next(error)

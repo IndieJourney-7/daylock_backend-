@@ -6,6 +6,7 @@
 import { Router } from 'express'
 import { notificationsService } from '../services/notificationsService.js'
 import { VAPID_PUBLIC_KEY, pushEnabled } from '../config/webpush.js'
+import { pushService } from '../services/pushService.js'
 
 const router = Router()
 
@@ -123,6 +124,38 @@ router.delete('/push/subscribe', async (req, res, next) => {
   try {
     await notificationsService.removePushSubscription(req.user.id, req.body.endpoint)
     res.json({ success: true })
+  } catch (error) {
+    next(error)
+  }
+})
+
+/**
+ * POST /api/notifications/push/test
+ * Send a test push notification to the current user
+ */
+router.post('/push/test', async (req, res, next) => {
+  try {
+    if (!pushEnabled) {
+      return res.status(503).json({ error: 'Push notifications not configured on server' })
+    }
+
+    const result = await pushService.sendToUser(req.user.id, {
+      type: 'test',
+      title: '🔔 Daylock Test Notification',
+      body: 'Push notifications are working! You\'ll receive room reminders here.',
+      data: { url: '/dashboard' },
+      tag: 'test-push',
+      icon: '/Assets/daylock_logo.png',
+      badge: '/favicon.svg'
+    })
+
+    if (result.sent === 0) {
+      return res.status(404).json({
+        error: 'No active push subscriptions found. Please enable push notifications first.'
+      })
+    }
+
+    res.json({ success: true, sent: result.sent })
   } catch (error) {
     next(error)
   }
