@@ -23,9 +23,7 @@ export const roomsService = {
             id, name, email
           )
         ),
-        room_rules (
-          id, text, enabled, sort_order, group_title, group_sort
-        )
+        room_rules (*)
       `)
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
@@ -64,9 +62,7 @@ export const roomsService = {
             id, name, email
           )
         ),
-        room_rules (
-          id, text, enabled, sort_order, group_title, group_sort
-        )
+        room_rules (*)
       `)
       .eq('id', roomId)
       .single()

@@ -10,12 +10,24 @@ export const rulesService = {
    * Get rules for a room
    */
   async getRoomRules(roomId) {
-    const { data, error } = await supabaseAdmin
+    // Try with group_sort ordering first, fall back to sort_order only
+    let { data, error } = await supabaseAdmin
       .from('room_rules')
       .select('*')
       .eq('room_id', roomId)
       .order('group_sort', { ascending: true })
       .order('sort_order', { ascending: true })
+    
+    // If group_sort column doesn't exist yet (migration not run), fall back
+    if (error && error.message?.includes('group_sort')) {
+      const fallback = await supabaseAdmin
+        .from('room_rules')
+        .select('*')
+        .eq('room_id', roomId)
+        .order('sort_order', { ascending: true })
+      data = fallback.data
+      error = fallback.error
+    }
     
     if (error) throw error
     return data || []
@@ -38,33 +50,30 @@ export const rulesService = {
       throw new Error('Unauthorized to add rules to this room')
     }
     
-    // Get max sort_order within the same group
-    let query = supabaseAdmin
+    // Get max sort_order for this room
+    const { data: existing } = await supabaseAdmin
       .from('room_rules')
       .select('sort_order')
       .eq('room_id', roomId)
       .order('sort_order', { ascending: false })
       .limit(1)
     
-    if (groupTitle) {
-      query = query.eq('group_title', groupTitle)
-    } else {
-      query = query.is('group_title', null)
-    }
-    
-    const { data: existing } = await query
-    
     const nextOrder = (existing?.[0]?.sort_order ?? -1) + 1
     
-    const { data, error } = await supabaseAdmin
+    // Build insert payload — include group fields only if provided
+    const insertData = {
+      room_id: roomId,
+      text,
+      sort_order: nextOrder
+    }
+    if (groupTitle) {
+      insertData.group_title = groupTitle
+      insertData.group_sort = groupSort
+    }
+    
+    let { data, error } = await supabaseAdmin
       .from('room_rules')
-      .insert({
-        room_id: roomId,
-        text,
-        sort_order: nextOrder,
-        group_title: groupTitle,
-        group_sort: groupSort
-      })
+      .insert(insertData)
       .select()
       .single()
     
