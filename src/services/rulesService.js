@@ -14,6 +14,7 @@ export const rulesService = {
       .from('room_rules')
       .select('*')
       .eq('room_id', roomId)
+      .order('group_sort', { ascending: true })
       .order('sort_order', { ascending: true })
     
     if (error) throw error
@@ -23,7 +24,7 @@ export const rulesService = {
   /**
    * Add a rule to a room
    */
-  async addRule(roomId, text, adminId) {
+  async addRule(roomId, text, adminId, groupTitle = null, groupSort = 0) {
     // Verify admin has access to this room
     const { data: invite } = await supabaseAdmin
       .from('room_invites')
@@ -37,13 +38,21 @@ export const rulesService = {
       throw new Error('Unauthorized to add rules to this room')
     }
     
-    // Get max sort_order
-    const { data: existing } = await supabaseAdmin
+    // Get max sort_order within the same group
+    let query = supabaseAdmin
       .from('room_rules')
       .select('sort_order')
       .eq('room_id', roomId)
       .order('sort_order', { ascending: false })
       .limit(1)
+    
+    if (groupTitle) {
+      query = query.eq('group_title', groupTitle)
+    } else {
+      query = query.is('group_title', null)
+    }
+    
+    const { data: existing } = await query
     
     const nextOrder = (existing?.[0]?.sort_order ?? -1) + 1
     
@@ -52,7 +61,9 @@ export const rulesService = {
       .insert({
         room_id: roomId,
         text,
-        sort_order: nextOrder
+        sort_order: nextOrder,
+        group_title: groupTitle,
+        group_sort: groupSort
       })
       .select()
       .single()

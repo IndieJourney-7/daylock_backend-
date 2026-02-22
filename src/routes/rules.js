@@ -27,7 +27,7 @@ router.get('/room/:roomId', async (req, res, next) => {
  */
 router.post('/', async (req, res, next) => {
   try {
-    const { room_id, text } = req.body
+    const { room_id, text, group_title, group_sort } = req.body
     
     if (!room_id || !text) {
       return res.status(400).json({
@@ -36,7 +36,7 @@ router.post('/', async (req, res, next) => {
       })
     }
     
-    const rule = await rulesService.addRule(room_id, text, req.user.id)
+    const rule = await rulesService.addRule(room_id, text, req.user.id, group_title || null, group_sort || 0)
     res.status(201).json(rule)
   } catch (error) {
     next(error)
@@ -49,10 +49,17 @@ router.post('/', async (req, res, next) => {
  */
 router.put('/:ruleId', async (req, res, next) => {
   try {
-    const { text, enabled, sort_order } = req.body
+    const { text, enabled, sort_order, group_title, group_sort } = req.body
+    const updates = {}
+    if (text !== undefined) updates.text = text
+    if (enabled !== undefined) updates.enabled = enabled
+    if (sort_order !== undefined) updates.sort_order = sort_order
+    if (group_title !== undefined) updates.group_title = group_title
+    if (group_sort !== undefined) updates.group_sort = group_sort
+    
     const rule = await rulesService.updateRule(
       req.params.ruleId,
-      { text, enabled, sort_order },
+      updates,
       req.user.id
     )
     res.json(rule)

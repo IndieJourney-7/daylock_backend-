@@ -24,7 +24,7 @@ export const roomsService = {
           )
         ),
         room_rules (
-          id, text, enabled, sort_order
+          id, text, enabled, sort_order, group_title, group_sort
         )
       `)
       .eq('user_id', userId)
@@ -65,7 +65,7 @@ export const roomsService = {
           )
         ),
         room_rules (
-          id, text, enabled, sort_order
+          id, text, enabled, sort_order, group_title, group_sort
         )
       `)
       .eq('id', roomId)
