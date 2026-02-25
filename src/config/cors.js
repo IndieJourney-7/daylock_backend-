@@ -12,18 +12,26 @@ const allowedOrigins = [
 
 export const corsOptions = {
   origin: (origin, callback) => {
-    // Allow requests with no origin (mobile apps, curl, etc.)
-    if (!origin) return callback(null, true)
+    // In production, require origin header
+    if (!origin) {
+      // Allow no-origin requests only in development (for Postman, curl, etc.)
+      if (process.env.NODE_ENV !== 'production') {
+        return callback(null, true)
+      }
+      return callback(new Error('Origin header required'))
+    }
     
     if (allowedOrigins.includes(origin)) {
       callback(null, true)
     } else {
-      callback(new Error('Not allowed by CORS'))
+      console.warn(`Blocked request from unauthorized origin: ${origin}`)
+      callback(new Error(`Not allowed by CORS: ${origin}`))
     }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  maxAge: 86400 // 24 hours - cache preflight requests
 }
 
 export default corsOptions

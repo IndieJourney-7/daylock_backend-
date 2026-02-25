@@ -5,7 +5,7 @@
 
 import { Router } from 'express'
 import { invitesService } from '../services/index.js'
-import { optionalAuth } from '../middleware/index.js'
+import { optionalAuth, authLimiter, validateInviteCode } from '../middleware/index.js'
 
 const router = Router()
 
@@ -69,7 +69,7 @@ router.post('/', async (req, res, next) => {
  * POST /api/invites/accept
  * Accept an invite (become admin for a room)
  */
-router.post('/accept', async (req, res, next) => {
+router.post('/accept', authLimiter, validateInviteCode, async (req, res, next) => {
   try {
     const { invite_code } = req.body
     

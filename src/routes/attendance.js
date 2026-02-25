@@ -5,6 +5,7 @@
 
 import { Router } from 'express'
 import { attendanceService } from '../services/index.js'
+import { validateAttendanceSubmit, validateAttendanceReview, sensitiveLimiter, uploadLimiter } from '../middleware/index.js'
 
 const router = Router()
 
@@ -34,12 +35,27 @@ router.get('/', async (req, res, next) => {
  */
 router.get('/room/:roomId', async (req, res, next) => {
   try {
-    // Allow admins to view a specific user's attendance
-    const userId = req.query.userId || req.user.id
-    const attendance = await attendanceService.getUserAttendance(
-      req.params.roomId,
-      userId
-    )
+    const targetUserId = req.query.userId
+    const currentUserId = req.user.id
+    const roomId = req.params.roomId
+    
+    // If requesting another user's data, verify admin access
+    if (targetUserId && targetUserId !== currentUserId) {
+      // Import roomsService to check admin status
+      const { roomsService } = await import('../services/index.js')
+      const isAdmin = await roomsService.isUserAdminOfRoom(roomId, currentUserId)
+      const isOwner = await roomsService.isUserOwnerOfRoom(roomId, currentUserId)
+      
+      if (!isAdmin && !isOwner) {
+        return res.status(403).json({
+          error: 'Forbidden',
+          message: 'Not authorized to view this user\'s attendance'
+        })
+      }
+    }
+    
+    const userId = targetUserId || currentUserId
+    const attendance = await attendanceService.getUserAttendance(roomId, userId)
     res.json(attendance)
   } catch (error) {
     next(error)
@@ -82,7 +98,7 @@ router.get('/room/:roomId/stats', async (req, res, next) => {
  * POST /api/attendance/submit
  * Submit attendance with proof
  */
-router.post('/submit', async (req, res, next) => {
+router.post('/submit', uploadLimiter, validateAttendanceSubmit, async (req, res, next) => {
   try {
     const { room_id, proof_url, note } = req.body
     
@@ -135,7 +151,7 @@ router.get('/pending/:roomId', async (req, res, next) => {
  * POST /api/attendance/:attendanceId/approve
  * Approve attendance (admin action)
  */
-router.post('/:attendanceId/approve', async (req, res, next) => {
+router.post('/:attendanceId/approve', sensitiveLimiter, validateAttendanceReview, async (req, res, next) => {
   try {
     const { quality_rating, admin_feedback } = req.body || {}
     const attendance = await attendanceService.approveAttendance(

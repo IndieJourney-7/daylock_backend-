@@ -8,16 +8,24 @@ import express from 'express'
 import cors from 'cors'
 
 import { corsOptions } from './config/index.js'
-import { errorHandler, notFoundHandler } from './middleware/index.js'
+import { errorHandler, notFoundHandler, securityHeaders, apiLimiter } from './middleware/index.js'
 import routes from './routes/index.js'
 import { startReminderCron } from './cron/reminderCron.js'
 
 const app = express()
 const PORT = process.env.PORT || 3001
 
-// Middleware
+// Security middleware (MUST be first)
+app.use(securityHeaders)
+
+// CORS
 app.use(cors(corsOptions))
-app.use(express.json())
+
+// Body parser
+app.use(express.json({ limit: '10mb' })) // Limit request body size
+
+// Rate limiting (apply to all routes)
+app.use(apiLimiter)
 
 // Request logging in development
 if (process.env.NODE_ENV !== 'production') {

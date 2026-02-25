@@ -1,2 +1,5 @@
 export { authenticate, optionalAuth } from './auth.js'
 export { errorHandler, notFoundHandler, ApiError } from './errorHandler.js'
+export { apiLimiter, authLimiter, sensitiveLimiter, uploadLimiter } from './rateLimiter.js'
+export { securityHeaders } from './securityHeaders.js'
+export * from './validation.js'

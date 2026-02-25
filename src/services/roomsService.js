@@ -232,20 +232,46 @@ export const roomsService = {
   },
 
   /**
+   * Check if user is admin of a room
+   * @param {string} roomId 
+   * @param {string} userId 
+   * @returns {Promise<boolean>}
+   */
+  async isUserAdminOfRoom(roomId, userId) {
+    const { data: invite } = await supabaseAdmin
+      .from('room_invites')
+      .select('id')
+      .eq('room_id', roomId)
+      .eq('admin_id', userId)
+      .eq('status', 'accepted')
+      .maybeSingle()
+    
+    return !!invite
+  },
+
+  /**
+   * Check if user is owner of a room
+   * @param {string} roomId 
+   * @param {string} userId 
+   * @returns {Promise<boolean>}
+   */
+  async isUserOwnerOfRoom(roomId, userId) {
+    const { data: room } = await supabaseAdmin
+      .from('rooms')
+      .select('user_id')
+      .eq('id', roomId)
+      .maybeSingle()
+    
+    return room?.user_id === userId
+  },
+
+  /**
    * Toggle room pause status (admin)
    */
   async toggleRoomPause(roomId, adminId) {
     // Verify admin access
-    const { data: invite, error: inviteError } = await supabaseAdmin
-      .from('room_invites')
-      .select('id')
-      .eq('room_id', roomId)
-      .eq('admin_id', adminId)
-      .eq('status', 'accepted')
-      .maybeSingle()
-    
-    if (inviteError) throw inviteError
-    if (!invite) {
+    const isAdmin = await this.isUserAdminOfRoom(roomId, adminId)
+    if (!isAdmin) {
       throw new Error('Unauthorized: you are not an admin of this room')
     }
     

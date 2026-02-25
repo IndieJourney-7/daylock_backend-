@@ -5,6 +5,7 @@
 
 import { Router } from 'express'
 import { roomsService } from '../services/index.js'
+import { validateRoomCreation, validateRoomUpdate, validateUUID } from '../middleware/index.js'
 
 const router = Router()
 
@@ -68,7 +69,7 @@ router.get('/:roomId/stats', async (req, res, next) => {
  * Create a new room (name + description + emoji)
  * Timing is set by admin later, room code is auto-generated
  */
-router.post('/', async (req, res, next) => {
+router.post('/', validateRoomCreation, async (req, res, next) => {
   try {
     const { name, emoji, description } = req.body
     
@@ -94,7 +95,7 @@ router.post('/', async (req, res, next) => {
  * PUT /api/rooms/:roomId
  * Update a room (owner)
  */
-router.put('/:roomId', async (req, res, next) => {
+router.put('/:roomId', validateRoomUpdate, async (req, res, next) => {
   try {
     const { name, emoji, description, time_start, time_end } = req.body
     const room = await roomsService.updateRoom(req.params.roomId, req.user.id, {
